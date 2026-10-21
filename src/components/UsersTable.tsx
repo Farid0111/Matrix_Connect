@@ -30,27 +30,28 @@ export function UsersTable({
             <th>Serveur</th>
             <th>MAC</th>
             <th>Connexions</th>
+            <th>Visites</th>
             <th>Date</th>
           </tr>
         </thead>
         <tbody>
           {loading && (
             <tr>
-              <td colSpan={8} className="loading">
+              <td colSpan={9} className="loading">
                 <span>🔄</span> Chargement...
               </td>
             </tr>
           )}
           {!loading && error && (
             <tr>
-              <td colSpan={8} className="no-data">
+              <td colSpan={9} className="no-data">
                 <span>❌</span> Erreur: {error}
               </td>
             </tr>
           )}
           {!loading && !error && users.length === 0 && (
             <tr>
-              <td colSpan={8} className="no-data">
+              <td colSpan={9} className="no-data">
                 <span>ℹ️</span> Aucun enregistrement
               </td>
             </tr>
@@ -85,9 +86,17 @@ export function UsersTable({
                     <td>
                       <span
                         className="total-pill"
-                        title={`${owner?.connections ?? 0} connexion(s) pour ce numero`}
+                        title={`${owner?.connections ?? 0} connexion(s) (champ connectionCount du portail)`}
                       >
                         {owner?.connections ?? 0}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className="total-pill muted"
+                        title={`${owner?.visits ?? 0} passage(s) enregistre(s)`}
+                      >
+                        {owner?.visits ?? 0}
                       </span>
                     </td>
                     <td>{formatTimestamp(u.createdAt)}</td>

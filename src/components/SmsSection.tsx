@@ -13,6 +13,7 @@ import {
   activityLevel,
   activitySummary,
   irregularRecipients,
+  isRegular,
   REGULAR_THRESHOLDS,
   SORT_MODES,
   sortRecipients,
@@ -93,7 +94,7 @@ export function SmsSection({
     [filtered, sortMode],
   )
 
-  /** Clients irreguliers (sous le seuil de connexions). */
+  /** Clients irreguliers (sous le seuil sur la metrique retenue). */
   const irregular = useMemo(
     () => irregularRecipients(valid, threshold),
     [valid, threshold],
@@ -150,7 +151,7 @@ export function SmsSection({
 
   /** Selectionne uniquement les clients reguliers. */
   function selectRegular() {
-    const regular = valid.filter((r) => r.connections >= threshold)
+    const regular = valid.filter((r) => isRegular(r, threshold))
     setSelected(new Set(regular.map((r) => r.e164)))
     setTargeting(
       `${regular.length} client(s) regulier(s) selectionne(s) ` +
@@ -342,10 +343,11 @@ export function SmsSection({
         </div>
 
         <p className="sms-targeting-hint">
-          {summary.totalConnections} connexion(s) au total. Nombre de
-          connexions = champ <code>connectionCount</code> du portail quand il
-          est renseigne, sinon le nombre de passages de l&apos;appareil (1
-          document = 1 connexion).
+          <strong>Connexions</strong> : champ <code>connectionCount</code> ecrit
+          par le portail, somme par appareil. <strong>Visites</strong> : nombre
+          de passages du client (1 document = 1 passage). Les deux metriques
+          restent distinctes. Total : {summary.totalConnections} connexion(s) et{' '}
+          {summary.totalVisits} visite(s).
         </p>
       </div>
 
@@ -383,6 +385,7 @@ export function SmsSection({
             <ul className="sms-list">
               {sorted.map((r) => {
                 const level = activityLevel(r, threshold)
+                const value = r.connections
                 return (
                   <li key={r.e164} className={`sms-item level-${level}`}>
                     <label className="sms-check">
@@ -404,13 +407,13 @@ export function SmsSection({
                       </span>
                       <span
                         className={`sms-badge level-${level}`}
-                        title={`${r.connections} connexion(s) — ${r.visits} passage(s) — ${r.daysActive} jour(s) actif(s) — derniere visite ${
+                        title={`${r.connections} connexion(s) (champ connectionCount) — ${r.visits} visite(s) — ${r.daysActive} jour(s) actif(s) — derniere visite ${
                           r.lastVisit
                             ? new Date(r.lastVisit).toLocaleDateString('fr-FR')
                             : 'inconnue'
                         }`}
                       >
-                        {r.connections}
+                        {value}
                       </span>
                     </label>
                     <button

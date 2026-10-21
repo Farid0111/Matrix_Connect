@@ -38,13 +38,16 @@ export function StatsGrid({
     const owners = groupByPhone(rawUsers ?? users)
     const clients = owners.filter((o) => o.e164 !== null)
 
+    // Deux metriques distinctes : les connexions declarees par le portail et
+    // le nombre de visites (passages) des clients.
     const connections = clients.reduce((sum, o) => sum + o.connections, 0)
+    const visits = clients.reduce((sum, o) => sum + o.visits, 0)
     const activity = activitySummary(clients, threshold)
 
     const top = [...clients].sort(
       (a, b) =>
         b.connections - a.connections ||
-        b.reportedConnections - a.reportedConnections ||
+        b.visits - a.visits ||
         (b.lastVisit ?? '').localeCompare(a.lastVisit ?? ''),
     )[0]
 
@@ -56,6 +59,7 @@ export function StatsGrid({
       zones: zones.size,
       servers: servers.size,
       connections,
+      visits,
       regular: activity.regular,
       irregular: activity.irregular,
       top,
@@ -97,7 +101,7 @@ export function StatsGrid({
         </div>
         <div className="stat-sub">
           {stats.top
-            ? `${stats.top.connections} connexion(s) · ${stats.top.daysActive} jour(s)`
+            ? `${stats.top.connections} connexion(s) · ${stats.top.visits} visite(s)`
             : 'aucun client'}
         </div>
       </div>
@@ -105,8 +109,13 @@ export function StatsGrid({
         <div className="stat-label">Total Connexions</div>
         <div className="stat-value">{stats.connections}</div>
         <div className="stat-sub">
-          {stats.total} passage(s) enregistre(s)
+          champ <code>connectionCount</code> du portail
         </div>
+      </div>
+      <div className="stat-card">
+        <div className="stat-label">Total Visites</div>
+        <div className="stat-value">{stats.visits}</div>
+        <div className="stat-sub">{stats.total} passage(s) enregistre(s)</div>
       </div>
       <div className="stat-card">
         <div className="stat-label">Clients Reguliers</div>

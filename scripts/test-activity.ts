@@ -10,10 +10,14 @@ import { resolveRecipients, type PhoneRecord } from '../src/utils/owners'
 /**
  * Verifie le tri par nombre de connexions et le ciblage des clients
  * irreguliers (candidats a une relance par SMS).
+ *
+ * Deux metriques distinctes, jamais melangees :
+ *   - CONNEXIONS : champ `connectionCount` ecrit par le portail
+ *   - VISITES : nombre de passages du client (1 document = 1 passage)
  */
 
 const RECORDS: PhoneRecord[] = [
-  // Client regulier : 5 passages, champ connectionCount absent
+  // 5 visites, aucun compteur renseigne -> 0 connexion
   ...Array.from({ length: 5 }, (_, i) => ({
     name: 'AkADIRI',
     phone: '0163471290',
@@ -22,7 +26,7 @@ const RECORDS: PhoneRecord[] = [
     createdAt: `2026-10-0${i + 1}T08:00:00Z`,
     connectionCount: 0,
   })),
-  // Client regulier : 3 passages
+  // 3 visites, aucun compteur renseigne -> 0 connexion
   ...Array.from({ length: 3 }, (_, i) => ({
     name: 'GUERRA SAKA',
     phone: '0155541115',
@@ -31,7 +35,7 @@ const RECORDS: PhoneRecord[] = [
     createdAt: `2026-10-0${i + 1}T09:00:00Z`,
     connectionCount: 0,
   })),
-  // Client irregulier : 2 passages
+  // 2 visites, aucun compteur renseigne -> 0 connexion
   ...Array.from({ length: 2 }, (_, i) => ({
     name: 'Barthelemy Zinsou',
     phone: '43306235',
@@ -40,7 +44,7 @@ const RECORDS: PhoneRecord[] = [
     createdAt: `2026-10-0${i + 1}T10:00:00Z`,
     connectionCount: 0,
   })),
-  // Client irregulier : 1 passage
+  // 1 visite, aucun compteur renseigne -> 0 connexion
   {
     name: 'Christelle Ahouandjinou',
     phone: '98506459',
@@ -49,27 +53,30 @@ const RECORDS: PhoneRecord[] = [
     createdAt: '2026-10-01T11:00:00Z',
     connectionCount: 0,
   },
-  {
-    name: 'Djibril Salami',
-    phone: '58043116',
-    mac: 'AA:BB:CC:00:04:00',
-    zone: 'Cotonou',
-    createdAt: '2026-10-01T12:00:00Z',
-    connectionCount: 0,
-  },
-  // Un seul document portant le vrai compteur du portail : 12 connexions
+  // 1 visite, le portail a renseigne 12 connexions
   {
     name: 'Zime Mohamed',
     phone: '0152971833',
-    mac: 'AA:BB:CC:00:05:00',
+    mac: 'AA:BB:CC:00:04:00',
     zone: 'Cotonou',
     createdAt: '2026-10-15T12:00:00Z',
     connectionCount: 12,
   },
+  // 4 visites, compteur renseigne a 1 (par appareil)
+  ...Array.from({ length: 4 }, (_, i) => ({
+    name: 'Sedjame',
+    phone: '0166764375',
+    mac: `AA:BB:CC:00:05:${i.toString().padStart(2, '0')}`,
+    zone: 'Cotonou',
+    createdAt: `2026-10-0${i + 1}T12:00:00Z`,
+    connectionCount: 1,
+  })),
 ]
 
 const { valid } = resolveRecipients(RECORDS)
 const THRESHOLD = 3
+
+const find = (name: string) => valid.find((r) => r.name === name)
 
 console.log('clients :', valid.length)
 for (const r of valid) {
@@ -78,21 +85,19 @@ for (const r of valid) {
     r.e164.padEnd(18),
     (r.name || '(sans nom)').padEnd(26),
     `${r.connections} connexion(s)`,
-    `${r.visits} passage(s)`,
+    `${r.visits} visite(s)`,
     `| niveau : ${activityLevel(r, THRESHOLD)}`,
   )
 }
 console.log('')
 
 const byConnections = sortRecipients(valid, 'connections')
-const byIrregular = sortRecipients(valid, 'irregular')
+const byVisits = sortRecipients(valid, 'visits')
 const irregular = irregularRecipients(valid, THRESHOLD)
 const summary = activitySummary(valid, THRESHOLD)
 
-console.log('tri connexions decroissant :')
-console.log(' ', byConnections.map((r) => `${r.name}:${r.connections}`).join(' | '))
-console.log('tri irreguliers d abord :')
-console.log(' ', byIrregular.map((r) => `${r.name}:${r.connections}`).join(' | '))
+console.log('tri connexions :', byConnections.map((r) => `${r.name}:${r.connections}`).join(' | '))
+console.log('tri visites    :', byVisits.map((r) => `${r.name}:${r.visits}`).join(' | '))
 console.log('')
 console.log('irreguliers selectionnes :', irregular.map((r) => r.name).join(', '))
 console.log('resume :', JSON.stringify(summary))
@@ -101,50 +106,54 @@ console.log('')
 const checks: [string, boolean][] = [
   ['6 clients', valid.length === 6],
   [
-    'connexions = nombre de passages quand connectionCount est absent',
-    valid.find((r) => r.name === 'AkADIRI')?.connections === 5,
+    'visites = nombre de passages, independamment du compteur',
+    find('AkADIRI')?.visits === 5 && find('Zime Mohamed')?.visits === 1,
   ],
   [
-    'connexions = connectionCount du portail quand il est renseigne',
-    valid.find((r) => r.name === 'Zime Mohamed')?.connections === 12,
+    'connexions = compteur du portail quand il est renseigne',
+    find('Zime Mohamed')?.connections === 12,
   ],
   [
-    'le compteur du portail prime sur le nombre de documents',
-    valid.find((r) => r.name === 'Zime Mohamed')?.visits === 1,
+    'connexions = 0 quand le portail n a rien renseigne',
+    find('AkADIRI')?.connections === 0,
   ],
   [
-    'tri connexions : du plus regulier au moins regulier',
-    byConnections[0].name === 'Zime Mohamed' && byConnections[1].name === 'AkADIRI',
+    'les visites ne sont jamais completees par les connexions',
+    find('AkADIRI')?.visits === 5 && find('AkADIRI')?.connections === 0,
   ],
   [
-    'tri irreguliers : les 1 connexion en tete',
-    byIrregular[0].connections === 1 &&
-      byIrregular[0].name === 'Christelle Ahouandjinou',
+    'connexions = somme des compteurs par appareil (4 appareils x 1)',
+    find('Sedjame')?.connections === 4 && find('Sedjame')?.visits === 4,
   ],
-  ['3 clients irreguliers (seuil 3)', irregular.length === 3],
+  [
+    'tri connexions : compteur d abord, visites en departage',
+    byConnections[0].name === 'Zime Mohamed' && byConnections[1].name === 'Sedjame',
+  ],
+  [
+    'tri visites : AkADIRI en tete',
+    byVisits[0].name === 'AkADIRI',
+  ],
+  [
+    'tri irreguliers : les compteurs les plus bas en tete',
+    byConnections[byConnections.length - 1].connections === 0,
+  ],
+  ['4 clients irreguliers (seuil 3)', irregular.length === 4],
   [
     'irreguliers = moins de 3 connexions',
     irregular.every((r) => r.connections < THRESHOLD),
   ],
   [
-    'regulier = 3 connexions ou plus',
-    isRegular({ connections: 3 }, THRESHOLD),
+    'niveau rare / occasional / regular sur les connexions',
+    activityLevel(find('Christelle Ahouandjinou')!, THRESHOLD) === 'rare' &&
+      activityLevel(find('AkADIRI')!, THRESHOLD) === 'rare' &&
+      activityLevel(find('Sedjame')!, THRESHOLD) === 'regular',
   ],
   [
-    'non regulier = 2 connexions',
-    !isRegular({ connections: 2 }, THRESHOLD),
+    'resume : 2 reguliers / 4 irreguliers',
+    summary.regular === 2 && summary.irregular === 4,
   ],
-  [
-    'resume : 3 reguliers / 3 irreguliers',
-    summary.regular === 3 && summary.irregular === 3,
-  ],
-  ['resume : 24 connexions au total', summary.totalConnections === 24],
-  [
-    'niveaux : rare / occasional / regular',
-    activityLevel({ connections: 1 }, THRESHOLD) === 'rare' &&
-      activityLevel({ connections: 2 }, THRESHOLD) === 'occasional' &&
-      activityLevel({ connections: 5 }, THRESHOLD) === 'regular',
-  ],
+  ['resume : 16 connexions au total', summary.totalConnections === 16],
+  ['resume : 16 visites au total', summary.totalVisits === 16],
   [
     'le tri ne modifie pas la liste d origine',
     valid.map((r) => r.e164).join() !==

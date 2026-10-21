@@ -1,23 +1,23 @@
 import type { SmsRecipient } from './owners'
 
 /**
- * Tri et ciblage des clients par nombre de connexions.
+ * Tri et ciblage des clients sur le nombre de connexions.
  *
- * Le nombre de connexions d'un client vient du champ `connectionCount` de la
- * collection. Ce champ n'est renseigne que sur les documents les plus
- * recents : pour les anciens, chaque document vaut une connexion (le
- * portail ecrit un document par passage, jusqu'a 71 documents pour un meme
- * appareil). Les deux sont cumules par appareil, en retenant le compteur
- * renseigne s'il existe, sinon le nombre de documents.
+ * Le nombre de connexions d'un client est le champ `connectionCount` ecrit
+ * par le portail : somme des compteurs de chaque appareil du client. Ce
+ * champ n'est renseigne que sur les documents les plus recents ; les anciens
+ * valent 0. Le nombre de VISITES (passages) reste une metrique distincte
+ * et n'est jamais confondu avec le nombre de connexions.
  *
  * Un client est considere comme regulier au-dela d'un seuil de connexions ;
  * en dessous, il est "irregulier" et candidat a une relance par SMS.
  */
 
-export type SmsSortMode = 'connections' | 'irregular' | 'name' | 'recent'
+export type SmsSortMode = 'connections' | 'visits' | 'irregular' | 'name' | 'recent'
 
 export const SORT_MODES: { value: SmsSortMode; label: string }[] = [
   { value: 'connections', label: 'Connexions (decroissant)' },
+  { value: 'visits', label: 'Visites (decroissant)' },
   { value: 'irregular', label: 'Irreguliers d’abord' },
   { value: 'name', label: 'Nom (A→Z)' },
   { value: 'recent', label: 'Derniere visite (recent)' },
@@ -30,15 +30,9 @@ export const DEFAULT_THRESHOLD = 3
 
 export type ActivityLevel = 'rare' | 'occasional' | 'regular'
 
-/** Donnees minimales necessaires pour evaluer la regularite d'un client. */
-export interface ConnectionProfile {
-  /** Nombre de connexions du client */
-  connections: number
-}
-
 /** Un client est regulier s'il a au moins `threshold` connexions. */
 export function isRegular(
-  recipient: ConnectionProfile,
+  recipient: Pick<SmsRecipient, 'connections'>,
   threshold: number,
 ): boolean {
   return recipient.connections >= threshold
@@ -46,7 +40,7 @@ export function isRegular(
 
 /** Niveau de regularite, utilise pour colorer les badges. */
 export function activityLevel(
-  recipient: ConnectionProfile,
+  recipient: Pick<SmsRecipient, 'connections'>,
   threshold: number,
 ): ActivityLevel {
   if (recipient.connections >= threshold) return 'regular'
@@ -62,7 +56,7 @@ function byName(a: SmsRecipient, b: SmsRecipient): number {
   return a.e164.localeCompare(b.e164)
 }
 
-/** Trie une liste de destinataires selon le mode choisi. */
+/** Trie une liste de destinataires. */
 export function sortRecipients(
   list: SmsRecipient[],
   mode: SmsSortMode,
@@ -74,8 +68,12 @@ export function sortRecipients(
       return copy.sort(
         (a, b) =>
           b.connections - a.connections ||
-          b.reportedConnections - a.reportedConnections ||
+          b.visits - a.visits ||
           byName(a, b),
+      )
+    case 'visits':
+      return copy.sort(
+        (a, b) => b.visits - a.visits || byName(a, b),
       )
     case 'irregular':
       return copy.sort(
@@ -97,25 +95,33 @@ export function irregularRecipients(
   list: SmsRecipient[],
   threshold: number,
 ): SmsRecipient[] {
-  return list.filter((r) => !isRegular(r, threshold))
+  return list.filter((r) => r.connections < threshold)
 }
 
 /** Repartition des clients par nombre de connexions (pour le resume). */
 export function activitySummary(
-  list: ConnectionProfile[],
+  list: Pick<SmsRecipient, 'connections' | 'visits'>[],
   threshold: number,
-): { regular: number; irregular: number; totalConnections: number } {
+): {
+  regular: number
+  irregular: number
+  totalConnections: number
+  totalVisits: number
+} {
   let regular = 0
   let totalConnections = 0
+  let totalVisits = 0
 
   for (const r of list) {
-    if (isRegular(r, threshold)) regular += 1
+    if (r.connections >= threshold) regular += 1
     totalConnections += r.connections
+    totalVisits += r.visits
   }
 
   return {
     regular,
     irregular: list.length - regular,
     totalConnections,
+    totalVisits,
   }
 }

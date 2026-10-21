@@ -37,18 +37,15 @@ export interface PhoneOwner {
   /** Toutes les zones ou ce numero a ete vu */
   zones: string[]
   /**
-   * Nombre de connexions du client.
+   * Nombre de connexions declarees par le portail (champ `connectionCount`).
    *
-   * Le champ `connectionCount` de la collection n'est renseigne que sur les
-   * documents recents ; les anciens ne portent que leur existence, chaque
-   * document correspondant a une connexion. On additionne donc, par appareil
-   * (MAC), le plus grand des deux : le compteur renseigne par le portail, ou
-   * le nombre de documents de cet appareil.
+   * Ce champ n'est renseigne que sur les documents les plus recents : pour
+   * les anciens, il vaut 0 et la metrique est consideree comme inconnue
+   * (`connectionKnown` = false). Cette valeur n'est donc jamais completee
+   * par le nombre de visites : les deux metriques restent distinctes.
    */
   connections: number
-  /** Somme brute des valeurs du champ `connectionCount` */
-  reportedConnections: number
-  /** Nombre de documents enregistres pour ce numero */
+  /** Nombre de passages enregistres pour ce numero (1 document = 1 passage) */
   visits: number
   /** Nombre de jours distincts avec au moins un passage */
   daysActive: number
@@ -65,7 +62,7 @@ export interface PhoneOwner {
 interface DeviceCounter {
   /** Nombre de documents enregistres pour cet appareil */
   docs: number
-  /** Plus grand `connectionCount` renseigne pour cet appareil */
+  /** Compteur `connectionCount` renseigne par le portail */
   counter: number
 }
 
@@ -82,7 +79,6 @@ interface Accumulator {
   days: Set<string>
   devices: Map<string, DeviceCounter>
   visits: number
-  reportedConnections: number
   lastVisit: string | null
   lastVisitAt: number
   firstVisit: string | null
@@ -144,7 +140,6 @@ export function groupByPhone(records: PhoneRecord[]): PhoneOwner[] {
         days: new Set<string>(),
         devices: new Map<string, DeviceCounter>(),
         visits: 1,
-        reportedConnections: record.connectionCount ?? 0,
         lastVisit: record.createdAt ?? null,
         lastVisitAt: time,
         firstVisit: record.createdAt ?? null,
@@ -155,10 +150,6 @@ export function groupByPhone(records: PhoneRecord[]): PhoneOwner[] {
     } else {
       acc.records += 1
       acc.visits += 1
-      acc.reportedConnections = Math.max(
-        acc.reportedConnections,
-        record.connectionCount ?? 0,
-      )
 
       if (time > acc.lastVisitAt) {
         acc.lastVisitAt = time
@@ -198,7 +189,10 @@ export function groupByPhone(records: PhoneRecord[]): PhoneOwner[] {
 
     if (record.mac && record.mac !== '-') {
       acc.macs.add(record.mac)
-      const device = acc.devices.get(record.mac) ?? { docs: 0, counter: 0 }
+      const device = acc.devices.get(record.mac) ?? {
+        docs: 0,
+        counter: 0,
+      }
       device.docs += 1
       device.counter = Math.max(device.counter, record.connectionCount ?? 0)
       acc.devices.set(record.mac, device)
@@ -209,11 +203,12 @@ export function groupByPhone(records: PhoneRecord[]): PhoneOwner[] {
 
   return Array.from(groups.values())
     .map((acc) => {
-      // Par appareil : le compteur renseigne par le portail s'il existe,
-      // sinon le nombre de documents (1 document = 1 connexion).
+      // Connexions : somme des compteurs du portail, par appareil. On ne
+      // complete jamais par le nombre de documents : la metrique reste
+      // inconnue pour les clients dont le portail n'a rien renseigne.
       let connections = 0
       for (const device of acc.devices.values()) {
-        connections += Math.max(device.counter, device.docs)
+        connections += device.counter
       }
 
       return {
@@ -225,7 +220,6 @@ export function groupByPhone(records: PhoneRecord[]): PhoneOwner[] {
         zones: Array.from(acc.zones).sort(),
         connections,
         visits: acc.visits,
-        reportedConnections: acc.reportedConnections,
         daysActive: acc.days.size,
         lastVisit: acc.lastVisit,
         firstVisit: acc.firstVisit,
@@ -283,12 +277,10 @@ export interface SmsRecipient {
   macs: string[]
   /** Zones ou ce numero a ete vu */
   zones: string[]
-  /** Nombre de connexions du client (champ `connectionCount`, sinon documents) */
+  /** Nombre de connexions declarees par le portail (champ `connectionCount`) */
   connections: number
-  /** Nombre de documents enregistres pour ce numero */
+  /** Nombre de passages enregistres pour ce numero (1 document = 1 passage) */
   visits: number
-  /** Somme brute des valeurs du champ `connectionCount` */
-  reportedConnections: number
   /** Nombre de jours distincts avec au moins un passage */
   daysActive: number
   /** Derniere visite connue */
@@ -327,7 +319,6 @@ export function resolveRecipients(
         zones: owner.zones,
         connections: owner.connections,
         visits: owner.visits,
-        reportedConnections: owner.reportedConnections,
         daysActive: owner.daysActive,
         lastVisit: owner.lastVisit,
         firstVisit: owner.firstVisit,
