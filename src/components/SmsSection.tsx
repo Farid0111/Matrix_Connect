@@ -340,6 +340,17 @@ export function SmsSection({
           >
             Garder les reguliers ({summary.regular})
           </button>
+          <button
+            type="button"
+            className="ghost-btn"
+            onClick={() => {
+              const nums = selectedRecipients.map((r) => r.e164).join('\n')
+              navigator.clipboard.writeText(nums)
+            }}
+            disabled={selectedRecipients.length === 0}
+          >
+            Copier les numeros ({selectedRecipients.length})
+          </button>
         </div>
 
         <p className="sms-targeting-hint">
