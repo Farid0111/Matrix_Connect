@@ -159,6 +159,18 @@ export function SmsSection({
     )
   }
 
+  const selectInactive = () => {
+    const cutoff = Date.now() - 3 * 24 * 60 * 60 * 1000
+    const inactive = valid.filter((r) => {
+      if (!r.lastVisit) return true
+      return new Date(r.lastVisit).getTime() < cutoff
+    })
+    setSelected(new Set(inactive.map((r) => r.e164)))
+    setTargeting(
+      `${inactive.length} client(s) inactif(s) depuis 3 jours selectionne(s)`,
+    )
+  }
+
   async function handleSend() {
     const targets =
       selectedRecipients.length > 0
@@ -350,6 +362,13 @@ export function SmsSection({
             disabled={selectedRecipients.length === 0}
           >
             Copier les numeros ({selectedRecipients.length})
+          </button>
+          <button
+            type="button"
+            className="ghost-btn warn"
+            onClick={selectInactive}
+          >
+            Inactifs 3j
           </button>
         </div>
 
