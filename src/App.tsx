@@ -10,6 +10,7 @@ import { StatsGrid } from './components/StatsGrid'
 import { UsersTable } from './components/UsersTable'
 import { useWifiUsers } from './hooks/useWifiUsers'
 import type { Section } from './types'
+import { DEFAULT_THRESHOLD } from './utils/activity'
 import { decodeMac } from './utils/format'
 import { buildOwnerIndex } from './utils/owners'
 import './App.css'
@@ -20,6 +21,8 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [zone, setZone] = useState('')
   const [server, setServer] = useState('')
+  /** Nombre de connexions minimum pour qu'un client soit considere regulier. */
+  const [regularThreshold, setRegularThreshold] = useState(DEFAULT_THRESHOLD)
 
   /** Association numero normalise -> proprietaire, calculee sur tous les enregistrements. */
   const ownerIndex = useMemo(() => buildOwnerIndex(rawUsers), [rawUsers])
@@ -86,7 +89,11 @@ export default function App() {
 
         <main className="main-content">
           {section !== 'ceremony' && (
-            <StatsGrid users={users} rawUsers={rawUsers} />
+            <StatsGrid
+              users={users}
+              rawUsers={rawUsers}
+              threshold={regularThreshold}
+            />
           )}
 
           {section === 'table' && (
@@ -123,7 +130,11 @@ export default function App() {
 
           {section === 'sms' && (
             <div className="content-section active">
-              <SmsSection users={rawUsers} />
+              <SmsSection
+                users={rawUsers}
+                threshold={regularThreshold}
+                onThresholdChange={setRegularThreshold}
+              />
             </div>
           )}
         </main>

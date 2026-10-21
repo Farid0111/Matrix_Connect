@@ -9,13 +9,29 @@ import {
   sendSmsBatch,
   type SmsStatus,
 } from '../api/sms'
+import {
+  activityLevel,
+  activitySummary,
+  irregularRecipients,
+  REGULAR_THRESHOLDS,
+  SORT_MODES,
+  sortRecipients,
+  type SmsSortMode,
+} from '../utils/activity'
 import { normalizePhone } from '../utils/phone'
 
 interface SmsSectionProps {
   users: WifiUser[]
+  /** Nombre de connexions minimum pour qu'un client soit considere regulier */
+  threshold: number
+  onThresholdChange: (value: number) => void
 }
 
-export function SmsSection({ users }: SmsSectionProps) {
+export function SmsSection({
+  users,
+  threshold,
+  onThresholdChange,
+}: SmsSectionProps) {
   const [message, setMessage] = useState('')
   const [status, setStatus] = useState<SmsStatus | null>(null)
   const [statusError, setStatusError] = useState<string | null>(null)
@@ -30,6 +46,8 @@ export function SmsSection({ users }: SmsSectionProps) {
   const [nativeError, setNativeError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
+  const [sortMode, setSortMode] = useState<SmsSortMode>('connections')
+  const [targeting, setTargeting] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -69,6 +87,23 @@ export function SmsSection({ users }: SmsSectionProps) {
     )
   }, [valid, query])
 
+  /** Liste triee selon le mode choisi, filtre recherche conserve. */
+  const sorted = useMemo(
+    () => sortRecipients(filtered, sortMode),
+    [filtered, sortMode],
+  )
+
+  /** Clients irreguliers (sous le seuil de connexions). */
+  const irregular = useMemo(
+    () => irregularRecipients(valid, threshold),
+    [valid, threshold],
+  )
+
+  const summary = useMemo(
+    () => activitySummary(valid, threshold),
+    [valid, threshold],
+  )
+
   const selectedRecipients = useMemo(
     () => valid.filter((r) => selected.has(r.e164)),
     [valid, selected],
@@ -97,11 +132,30 @@ export function SmsSection({ users }: SmsSectionProps) {
   }
 
   function selectAll() {
-    setSelected(new Set(filtered.map((r) => r.e164)))
+    setSelected(new Set(sorted.map((r) => r.e164)))
   }
 
   function clearSelection() {
     setSelected(new Set())
+  }
+
+  /** Selectionne les clients irreguliers pour une relance par SMS. */
+  function selectIrregular() {
+    setSelected(new Set(irregular.map((r) => r.e164)))
+    setTargeting(
+      `${irregular.length} client(s) irregulier(s) selectionne(s) ` +
+        `(moins de ${threshold} connexion(s))`,
+    )
+  }
+
+  /** Selectionne uniquement les clients reguliers. */
+  function selectRegular() {
+    const regular = valid.filter((r) => r.visits >= threshold)
+    setSelected(new Set(regular.map((r) => r.e164)))
+    setTargeting(
+      `${regular.length} client(s) regulier(s) selectionne(s) ` +
+        `(${threshold} connexion(s) ou plus)`,
+    )
   }
 
   async function handleSend() {
@@ -207,6 +261,12 @@ export function SmsSection({ users }: SmsSectionProps) {
 
         <div className="sms-counts">
           <span className="sms-count valid">{valid.length} valide(s)</span>
+          <span className="sms-count irregular">
+            {summary.irregular} irregulier(s)
+          </span>
+          <span className="sms-count regular">
+            {summary.regular} regulier(s)
+          </span>
           {invalid.length > 0 && (
             <span className="sms-count invalid">
               {invalid.length} invalide(s)
@@ -232,6 +292,63 @@ export function SmsSection({ users }: SmsSectionProps) {
           <span>{message.length > 0 ? Math.ceil(message.length / 160) : 0} SMS</span>
         </div>
       </div>
+
+      <div className="sms-targeting">
+        <label className="sms-field">
+          <span>Trier par</span>
+          <select
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as SmsSortMode)}
+          >
+            {SORT_MODES.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="sms-field">
+          <span>Client regulier si &ge;</span>
+          <select
+            value={threshold}
+            onChange={(e) => onThresholdChange(Number(e.target.value))}
+          >
+            {REGULAR_THRESHOLDS.map((t) => (
+              <option key={t} value={t}>
+                {t} connexion(s)
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="sms-targeting-actions">
+          <button
+            type="button"
+            className="ghost-btn warn"
+            onClick={selectIrregular}
+            disabled={irregular.length === 0}
+          >
+            Relancer les irreguliers ({irregular.length})
+          </button>
+          <button
+            type="button"
+            className="ghost-btn"
+            onClick={selectRegular}
+            disabled={summary.regular === 0}
+          >
+            Garder les reguliers ({summary.regular})
+          </button>
+        </div>
+
+        <p className="sms-targeting-hint">
+          {summary.totalConnections} connexion(s) enregistree(s) au total. Un
+          document Firestore = une connexion WiFi : le nombre de connexions
+          d&apos;un client = le nombre de passages de son numero.
+        </p>
+      </div>
+
+      {targeting && <p className="sms-feedback ok">{targeting}</p>}
 
       <div className="sms-recipients">
         <div className="sms-recipients-head">
@@ -263,49 +380,62 @@ export function SmsSection({ users }: SmsSectionProps) {
               </p>
             )}
             <ul className="sms-list">
-              {filtered.map((r) => (
-                <li key={r.e164}>
-                  <label className="sms-check">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(r.e164)}
-                      onChange={() => toggle(r.e164)}
-                    />
-                    <span className="sms-identity">
-                      <span className="sms-owner">
-                        {r.name || 'Sans nom'}
-                      </span>
-                      <span className="sms-number">{r.e164}</span>
-                      {r.aliases.length > 0 && (
-                        <span className="sms-alias">
-                          aussi : {r.aliases.join(', ')}
+              {sorted.map((r) => {
+                const level = activityLevel(r, threshold)
+                return (
+                  <li key={r.e164} className={`sms-item level-${level}`}>
+                    <label className="sms-check">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(r.e164)}
+                        onChange={() => toggle(r.e164)}
+                      />
+                      <span className="sms-identity">
+                        <span className="sms-owner">
+                          {r.name || 'Sans nom'}
                         </span>
-                      )}
-                    </span>
-                  </label>
-                  <button
-                    type="button"
-                    className="sms-native-btn"
-                    onClick={() => handleNativeSend(r.e164)}
-                    disabled={!message.trim()}
-                    title={`Ouvrir dans l'application SMS du telephone (${r.name || r.e164})`}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <path
-                        d="M21 4H3a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 3 20h18a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 21 4Z"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                      />
-                      <path
-                        d="M8 9h8M8 13h5"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
-                </li>
-              ))}
+                        <span className="sms-number">{r.e164}</span>
+                        {r.aliases.length > 0 && (
+                          <span className="sms-alias">
+                            aussi : {r.aliases.join(', ')}
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        className={`sms-badge level-${level}`}
+                        title={`${r.visits} connexion(s) — ${r.daysActive} jour(s) actif(s) — derniere visite ${
+                          r.lastVisit
+                            ? new Date(r.lastVisit).toLocaleDateString('fr-FR')
+                            : 'inconnue'
+                        }`}
+                      >
+                        {r.visits}
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      className="sms-native-btn"
+                      onClick={() => handleNativeSend(r.e164)}
+                      disabled={!message.trim()}
+                      title={`Ouvrir dans l'application SMS du telephone (${r.name || r.e164})`}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path
+                          d="M21 4H3a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 3 20h18a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 21 4Z"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                        />
+                        <path
+                          d="M8 9h8M8 13h5"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           </>
         )}

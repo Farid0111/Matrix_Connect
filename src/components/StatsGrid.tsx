@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { WifiUser } from '../types'
+import { activitySummary, DEFAULT_THRESHOLD } from '../utils/activity'
 import { isThisWeek, isToday } from '../utils/format'
 import { groupByPhone } from '../utils/owners'
 
@@ -8,9 +9,15 @@ interface StatsGridProps {
   users: WifiUser[]
   /** Tous les enregistrements bruts (une ligne par passage) */
   rawUsers?: WifiUser[]
+  /** Nombre de connexions minimum pour qu'un client soit regulier */
+  threshold?: number
 }
 
-export function StatsGrid({ users, rawUsers }: StatsGridProps) {
+export function StatsGrid({
+  users,
+  rawUsers,
+  threshold = DEFAULT_THRESHOLD,
+}: StatsGridProps) {
   const stats = useMemo(() => {
     let today = 0
     let week = 0
@@ -31,15 +38,13 @@ export function StatsGrid({ users, rawUsers }: StatsGridProps) {
     const owners = groupByPhone(rawUsers ?? users)
     const clients = owners.filter((o) => o.e164 !== null)
 
-    const connections = clients.reduce(
-      (sum, o) => sum + o.connections,
-      0,
-    )
+    const connections = clients.reduce((sum, o) => sum + o.visits, 0)
+    const activity = activitySummary(clients, threshold)
 
     const top = [...clients].sort(
       (a, b) =>
-        b.connections - a.connections ||
-        b.records - a.records ||
+        b.visits - a.visits ||
+        b.reportedConnections - a.reportedConnections ||
         (b.lastVisit ?? '').localeCompare(a.lastVisit ?? ''),
     )[0]
 
@@ -51,9 +56,11 @@ export function StatsGrid({ users, rawUsers }: StatsGridProps) {
       zones: zones.size,
       servers: servers.size,
       connections,
+      regular: activity.regular,
+      irregular: activity.irregular,
       top,
     }
-  }, [users, rawUsers])
+  }, [users, rawUsers, threshold])
 
   return (
     <div className="stats-grid">
@@ -90,13 +97,23 @@ export function StatsGrid({ users, rawUsers }: StatsGridProps) {
         </div>
         <div className="stat-sub">
           {stats.top
-            ? `${stats.top.records} visite(s) · ${stats.top.connections} connexion(s)`
+            ? `${stats.top.visits} connexion(s) · ${stats.top.daysActive} jour(s)`
             : 'aucun client'}
         </div>
       </div>
       <div className="stat-card">
         <div className="stat-label">Total Connexions</div>
         <div className="stat-value">{stats.connections}</div>
+        <div className="stat-sub">
+          {stats.total} passage(s) enregistre(s)
+        </div>
+      </div>
+      <div className="stat-card">
+        <div className="stat-label">Clients Reguliers</div>
+        <div className="stat-value">{stats.regular}</div>
+        <div className="stat-sub">
+          {stats.irregular} irregulier(s) a relancer
+        </div>
       </div>
     </div>
   )

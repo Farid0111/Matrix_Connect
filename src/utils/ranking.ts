@@ -37,6 +37,14 @@ export function rankClientsForMonth(
   rawUsers: WifiUser[],
   monthKey: string,
 ): ClientRank[] {
+  // Connexions totales par client, toutes periodes confondues : un document
+  // Firestore = une connexion WiFi.
+  const totals = new Map<string, number>()
+  for (const u of rawUsers) {
+    const id = clientId(u)
+    totals.set(id, (totals.get(id) ?? 0) + 1)
+  }
+
   const map = new Map<
     string,
     {
@@ -66,7 +74,7 @@ export function rankClientsForMonth(
         zone: u.zone,
         server: u.server,
         visits: 1,
-        connectionCount: u.connectionCount,
+        connectionCount: totals.get(id) ?? 1,
         lastVisit: u.createdAt,
         zones: new Set(u.zone && u.zone !== '-' ? [u.zone] : []),
       })
@@ -76,7 +84,7 @@ export function rankClientsForMonth(
     existing.visits += 1
     existing.connectionCount = Math.max(
       existing.connectionCount,
-      u.connectionCount,
+      totals.get(id) ?? existing.connectionCount,
     )
     if (u.zone && u.zone !== '-') existing.zones.add(u.zone)
     if (

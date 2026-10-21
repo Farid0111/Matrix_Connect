@@ -36,10 +36,22 @@ export interface PhoneOwner {
   macs: string[]
   /** Toutes les zones ou ce numero a ete vu */
   zones: string[]
-  /** Connexions : maximum observe sur les enregistrements du numero */
-  connections: number
+  /**
+   * Nombre de connexions enregistrees pour ce numero.
+   * Chaque document Firestore correspond a une connexion WiFi.
+   */
+  visits: number
+  /**
+   * Valeur du champ `connectionCount` de la collection.
+   * Ce champ est absent des documents actuels : reste a 0.
+   */
+  reportedConnections: number
+  /** Nombre de jours distincts avec au moins un passage */
+  daysActive: number
   /** Derniere visite connue pour ce numero */
   lastVisit: string | null
+  /** Premiere visite connue pour ce numero */
+  firstVisit: string | null
   /** Nombre d'enregistrements agreges */
   records: number
   /** Raison du rejet si e164 est null */
@@ -56,9 +68,13 @@ interface Accumulator {
   aliases: string[]
   macs: Set<string>
   zones: Set<string>
-  connections: number
+  days: Set<string>
+  visits: number
+  reportedConnections: number
   lastVisit: string | null
   lastVisitAt: number
+  firstVisit: string | null
+  firstVisitAt: number
   records: number
 }
 
@@ -113,20 +129,33 @@ export function groupByPhone(records: PhoneRecord[]): PhoneOwner[] {
         aliases: [],
         macs: new Set<string>(),
         zones: new Set<string>(),
-        connections: record.connectionCount ?? 0,
+        days: new Set<string>(),
+        visits: 1,
+        reportedConnections: record.connectionCount ?? 0,
         lastVisit: record.createdAt ?? null,
         lastVisitAt: time,
+        firstVisit: record.createdAt ?? null,
+        firstVisitAt: time,
         records: 1,
       }
       groups.set(key, acc)
     } else {
       acc.records += 1
-      acc.connections = Math.max(acc.connections, record.connectionCount ?? 0)
+      acc.visits += 1
+      acc.reportedConnections = Math.max(
+        acc.reportedConnections,
+        record.connectionCount ?? 0,
+      )
 
       if (time > acc.lastVisitAt) {
         acc.lastVisitAt = time
         acc.lastVisit = record.createdAt ?? null
         acc.raw = raw
+      }
+
+      if (time < acc.firstVisitAt) {
+        acc.firstVisitAt = time
+        acc.firstVisit = record.createdAt ?? null
       }
 
       if (time > acc.nameAt) {
@@ -156,6 +185,7 @@ export function groupByPhone(records: PhoneRecord[]): PhoneOwner[] {
 
     if (record.mac && record.mac !== '-') acc.macs.add(record.mac)
     if (record.zone && record.zone !== '-') acc.zones.add(record.zone)
+    if (record.createdAt) acc.days.add(record.createdAt.slice(0, 10))
   }
 
   return Array.from(groups.values())
@@ -166,8 +196,11 @@ export function groupByPhone(records: PhoneRecord[]): PhoneOwner[] {
       aliases: acc.aliases,
       macs: Array.from(acc.macs),
       zones: Array.from(acc.zones).sort(),
-      connections: acc.connections,
+      visits: acc.visits,
+      reportedConnections: acc.reportedConnections,
+      daysActive: acc.days.size,
       lastVisit: acc.lastVisit,
+      firstVisit: acc.firstVisit,
       records: acc.records,
       error: acc.error,
     }))
@@ -221,10 +254,16 @@ export interface SmsRecipient {
   macs: string[]
   /** Zones ou ce numero a ete vu */
   zones: string[]
-  /** Connexions (max observe) */
-  connections: number
+  /** Nombre de connexions enregistrees (1 document = 1 connexion) */
+  visits: number
+  /** Valeur du champ `connectionCount` de la collection (0 si absent) */
+  reportedConnections: number
+  /** Nombre de jours distincts avec au moins un passage */
+  daysActive: number
   /** Derniere visite connue */
   lastVisit: string | null
+  /** Premiere visite connue */
+  firstVisit: string | null
   /** Nombre d'enregistrements agreges pour ce numero */
   records: number
 }
@@ -255,8 +294,11 @@ export function resolveRecipients(
         aliases: owner.aliases,
         macs: owner.macs,
         zones: owner.zones,
-        connections: owner.connections,
+        visits: owner.visits,
+        reportedConnections: owner.reportedConnections,
+        daysActive: owner.daysActive,
         lastVisit: owner.lastVisit,
+        firstVisit: owner.firstVisit,
         records: owner.records,
       })
     } else {

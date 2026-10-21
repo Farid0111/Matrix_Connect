@@ -83,7 +83,12 @@ export function UsersTable({
                     <td>{u.server}</td>
                     <td className="mac-cell">{decodeMac(u.mac)}</td>
                     <td>
-                      <span className="total-pill">{u.connectionCount}</span>
+                      <span
+                        className="total-pill"
+                        title={`${owner?.visits ?? 0} connexion(s) enregistree(s) pour ce numero`}
+                      >
+                        {owner?.visits ?? 0}
+                      </span>
                     </td>
                     <td>{formatTimestamp(u.createdAt)}</td>
                   </tr>

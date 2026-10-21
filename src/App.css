@@ -1310,6 +1310,78 @@ tbody tr:last-child td {
   background: rgba(201, 74, 14, 0.1);
 }
 
+.sms-count.irregular {
+  color: #b45309;
+  background: rgba(217, 119, 6, 0.14);
+}
+
+.sms-count.regular {
+  color: #1a7a3c;
+  background: rgba(26, 122, 60, 0.12);
+}
+
+.sms-targeting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  background: var(--card-bg);
+  border: 1.5px solid var(--card-border);
+  border-radius: 20px;
+  padding: 16px 18px;
+  box-shadow: 0 5px 20px rgba(23, 16, 74, 0.06);
+}
+
+.sms-targeting .sms-field {
+  min-width: 180px;
+}
+
+.sms-targeting .sms-field select {
+  background: var(--cream);
+  border: 1.5px solid var(--card-border);
+  border-radius: 12px;
+  padding: 9px 12px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--navy);
+  outline: none;
+}
+
+.sms-targeting .sms-field select:focus {
+  border-color: var(--yellow);
+  background: #fff;
+}
+
+.sms-targeting-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ghost-btn.warn {
+  border-color: rgba(217, 119, 6, 0.45);
+  color: #b45309;
+}
+
+.ghost-btn.warn:hover:not(:disabled) {
+  border-color: #d97706;
+  background: rgba(217, 119, 6, 0.12);
+}
+
+.ghost-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sms-targeting-hint {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
 .sms-compose {
   background: var(--card-bg);
   border: 1.5px solid var(--card-border);
@@ -1431,6 +1503,46 @@ tbody tr:last-child td {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sms-badge {
+  flex: 0 0 auto;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.sms-badge.level-regular {
+  color: #1a7a3c;
+  background: rgba(26, 122, 60, 0.14);
+}
+
+.sms-badge.level-occasional {
+  color: #b45309;
+  background: rgba(217, 119, 6, 0.16);
+}
+
+.sms-badge.level-rare {
+  color: #c94a0e;
+  background: rgba(201, 74, 14, 0.14);
+}
+
+.sms-item.level-rare {
+  border-left: 3px solid rgba(201, 74, 14, 0.5);
+}
+
+.sms-item.level-occasional {
+  border-left: 3px solid rgba(217, 119, 6, 0.5);
+}
+
+.sms-item.level-regular {
+  border-left: 3px solid rgba(26, 122, 60, 0.45);
 }
 
 .sms-list {

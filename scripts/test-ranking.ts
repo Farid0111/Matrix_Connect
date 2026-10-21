@@ -89,7 +89,7 @@ const checks: [string, boolean][] = [
   ['4 clients classes (numero normalise)', ranking.length === 4],
   ['Aline fusionnee en un seul client', !!aline],
   ['Aline : 3 visites cumulees', aline?.visits === 3],
-  ['Aline : connexions = max (18)', aline?.connectionCount === 18],
+  ['Aline : connexions = 3 (1 document = 1 connexion)', aline?.connectionCount === 3],
   ['Aline : nom le plus recent', aline?.name === 'Aline Kponou'],
   ['Aline : zones fusionnees', aline?.zonesUsed.length === 2],
   ['Barthelemy : 8 chiffres -> +2290143306235', !!barthelemy],

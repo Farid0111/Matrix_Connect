@@ -107,6 +107,14 @@ const RECORDS: PhoneRecord[] = [
     createdAt: '2026-10-10T08:00:00Z',
     connectionCount: 4,
   },
+  {
+    name: '0151924113',
+    phone: '0151924113',
+    mac: 'AA:BB:CC:00:00:0D',
+    zone: 'Cotonou',
+    createdAt: '2026-10-11T08:00:00Z',
+    connectionCount: 0,
+  },
 ]
 
 const { valid, invalid } = resolveRecipients(RECORDS)
@@ -124,8 +132,7 @@ for (const r of valid) {
     String(r.macs.length).padStart(4),
     r.zones.join('/'),
   )
-}
-console.log('')
+}console.log('')
 console.log('alias :')
 for (const r of valid) {
   if (r.aliases.length > 0) {
@@ -148,7 +155,7 @@ const serge = valid.find((r) => r.e164 === '+2290163471290')
 const checks: [string, boolean][] = [
   ['Aline : un seul numero pour 3 MAC', !!aline && aline.macs.length === 3],
   ['Aline : proprietaire = nom le plus ancien identique', aline?.name === 'Aline Kponou'],
-  ['Aline : connexions = max (18)', aline?.connections === 18],
+  ['Aline : connexions = 3 passages', aline?.visits === 3],
   ['Aline : 3 zones/enregistrements fusionnes', !!aline && aline.records === 3],
   [
     'Barthelemy : 8 chiffres -> +2290143306235',
@@ -175,6 +182,10 @@ const checks: [string, boolean][] = [
   [
     'Pas d alias quand le nom est identique',
     valid.every((r) => !r.aliases.some((a) => a === r.name)),
+  ],
+  [
+    'Nom qui ressemble a un numero : pas de proprietaire',
+    valid.find((r) => r.e164 === '+2290151924113')?.name === '',
   ],
 ]
 
