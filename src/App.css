@@ -578,16 +578,6 @@ tbody tr.recent:hover {
   background: rgba(26, 122, 60, 0.28);
 }
 
-tbody tr.recent::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: #1a7a3c;
-}
-
 tbody tr:last-child td {
   border-bottom: none;
 }

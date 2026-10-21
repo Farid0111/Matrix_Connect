@@ -86,9 +86,9 @@ export function UsersTable({
                     <td>
                       <span
                         className="total-pill"
-                        title={`${owner?.connections ?? 0} connexion(s) (champ connectionCount du portail)`}
+                        title={`${owner?.connections ?? u.connectionCount} connexion(s) (champ connectionCount du portail)`}
                       >
-                        {owner?.connections ?? 0}
+                        {owner?.connections ?? u.connectionCount}
                       </span>
                     </td>
                     <td>
