@@ -5,6 +5,8 @@ import {
   saveCeremonySelection,
 } from '../utils/ceremonyStorage'
 import { decodeMac, formatTimestamp } from '../utils/format'
+import { normalizePhone } from '../utils/phone'
+import { PhoneCell } from './PhoneCell'
 import {
   availableMonthKeys,
   formatMonthLabel,
@@ -202,10 +204,16 @@ export function CeremonySection({ rawUsers, loading }: CeremonySectionProps) {
                 {(best.name || '?').charAt(0).toUpperCase()}
               </div>
               <p className="best-name">{best.name}</p>
-              <p className="best-meta">{best.phone}</p>
+              <p className="best-meta">
+                {normalizePhone(best.phone).e164 ?? best.phone}
+              </p>
               <div className="best-stats">
                 <div>
                   <strong>{best.visits}</strong>
+                  <span>visites</span>
+                </div>
+                <div>
+                  <strong>{best.connectionCount}</strong>
                   <span>connexions</span>
                 </div>
                 <div>
@@ -251,7 +259,7 @@ export function CeremonySection({ rawUsers, loading }: CeremonySectionProps) {
                   >
                     <Medal rank={pos + 1} />
                     <strong>{client.name}</strong>
-                    <span>{client.visits} connexions</span>
+                    <span>{client.visits} visites</span>
                   </button>
                 )
               })}
@@ -280,7 +288,8 @@ export function CeremonySection({ rawUsers, loading }: CeremonySectionProps) {
                       {w.id === bestClientId ? ' ★' : ''}
                     </strong>
                     <span>
-                      {w.phone} · {w.visits} connexions
+                      {normalizePhone(w.phone).e164 ?? w.phone} · {w.visits}{' '}
+                      visites
                     </span>
                   </div>
                   <button
@@ -312,6 +321,7 @@ export function CeremonySection({ rawUsers, loading }: CeremonySectionProps) {
                 <th>Client</th>
                 <th>Téléphone</th>
                 <th>Zone</th>
+                <th>Visites</th>
                 <th>Connexions</th>
                 <th>Dernière visite</th>
                 <th>Action</th>
@@ -320,7 +330,7 @@ export function CeremonySection({ rawUsers, loading }: CeremonySectionProps) {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="no-data">
+                  <td colSpan={9} className="no-data">
                     Aucun client pour ce mois
                   </td>
                 </tr>
@@ -353,10 +363,15 @@ export function CeremonySection({ rawUsers, loading }: CeremonySectionProps) {
                           <span className="mac-cell">{decodeMac(c.mac)}</span>
                         </div>
                       </td>
-                      <td>{c.phone}</td>
+                      <td>
+                        <PhoneCell phone={c.phone} />
+                      </td>
                       <td>{c.zone}</td>
                       <td>
                         <span className="visits-pill">{c.visits}</span>
+                      </td>
+                      <td>
+                        <span className="total-pill">{c.connectionCount}</span>
                       </td>
                       <td>{formatTimestamp(c.lastVisit)}</td>
                       <td>

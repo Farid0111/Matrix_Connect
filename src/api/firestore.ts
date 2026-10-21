@@ -1,11 +1,13 @@
 import type { WifiUser } from '../types'
 
-const DB_URL =
+export const DB_URL =
   'https://firestore.googleapis.com/v1/projects/fahdbot-ace64/databases/(default)/documents/freeWifiUsers?key=AIzaSyB9uWscwgcxG-Db-SwT-wy8JHg6AjHLdow'
 
 interface FirestoreField {
   stringValue?: string
   timestampValue?: string
+  integerValue?: string
+  doubleValue?: number
 }
 
 interface FirestoreDocument {
@@ -23,17 +25,34 @@ function dedupeByMac(users: WifiUser[]): WifiUser[] {
   for (const user of users) {
     if (!user.mac || user.mac === '-') continue
     const existing = byMac.get(user.mac)
-    if (
-      !existing ||
-      (user.createdAt &&
-        (!existing.createdAt ||
-          new Date(user.createdAt) > new Date(existing.createdAt)))
-    ) {
+    if (!existing) {
       byMac.set(user.mac, user)
+      continue
     }
+
+    const isNewer =
+      user.createdAt &&
+      (!existing.createdAt ||
+        new Date(user.createdAt) > new Date(existing.createdAt))
+
+    byMac.set(user.mac, {
+      ...(isNewer ? user : existing),
+      connectionCount: Math.max(
+        existing.connectionCount,
+        user.connectionCount,
+      ),
+    })
   }
 
   return Array.from(byMac.values())
+}
+
+function readNumber(field: FirestoreField | undefined): number {
+  if (!field) return 0
+  if (field.integerValue !== undefined) return Number(field.integerValue) || 0
+  if (field.doubleValue !== undefined) return field.doubleValue
+  if (field.stringValue !== undefined) return Number(field.stringValue) || 0
+  return 0
 }
 
 function mapDocs(docs: FirestoreDocument[]): WifiUser[] {
@@ -46,6 +65,7 @@ function mapDocs(docs: FirestoreDocument[]): WifiUser[] {
       zone: f.zone?.stringValue ?? '-',
       server: f.server?.stringValue ?? '-',
       createdAt: f.createdAt?.timestampValue ?? null,
+      connectionCount: readNumber(f.connectionCount),
     }
   })
 }
@@ -66,6 +86,18 @@ async function fetchPage(pageToken?: string): Promise<FirestoreResponse> {
   })
 
   if (!response.ok) {
+    if (response.status === 429) {
+      // Rate limited - wait and retry once
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      const retryResponse = await fetch(url, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      })
+      if (!retryResponse.ok) {
+        throw new Error(`HTTP ${retryResponse.status}`)
+      }
+      return (await retryResponse.json()) as FirestoreResponse
+    }
     throw new Error(`HTTP ${response.status}`)
   }
 
@@ -84,6 +116,8 @@ export async function fetchWifiUsers(): Promise<WifiUsersPayload> {
     if (pageToken) {
       if (seenTokens.has(pageToken)) break
       seenTokens.add(pageToken)
+      // Small delay between paginated requests to avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, 100))
     }
   } while (pageToken)
 

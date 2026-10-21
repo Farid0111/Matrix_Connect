@@ -5,9 +5,10 @@ export interface WifiUser {
   zone: string
   server: string
   createdAt: string | null
+  connectionCount: number
 }
 
-export type Section = 'table' | 'charts' | 'ceremony'
+export type Section = 'table' | 'charts' | 'ceremony' | 'sms'
 
 export interface Stats {
   total: number
@@ -25,6 +26,7 @@ export interface ClientRank {
   zone: string
   server: string
   visits: number
+  connectionCount: number
   lastVisit: string | null
   zonesUsed: string[]
 }

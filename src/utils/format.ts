@@ -18,6 +18,12 @@ export function isToday(dateStr: string): boolean {
   return new Date(dateStr).toDateString() === new Date().toDateString()
 }
 
+export function isRecentlyConnected(dateStr: string | null, minutes = 5): boolean {
+  if (!dateStr) return false
+  const diff = Date.now() - new Date(dateStr).getTime()
+  return diff >= 0 && diff <= minutes * 60 * 1000
+}
+
 export function isThisWeek(dateStr: string): boolean {
   const now = new Date()
   const startOfWeek = new Date(now)

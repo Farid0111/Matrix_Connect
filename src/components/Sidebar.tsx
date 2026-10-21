@@ -54,6 +54,24 @@ function IconTrophy() {
   )
 }
 
+function IconSms() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M20 4H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 20h16a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 20 4Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M8 9h8M8 13h5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 function IconRefresh({ spinning }: { spinning?: boolean }) {
   return (
     <svg
@@ -88,6 +106,7 @@ const ITEMS: {
   { id: 'table', label: 'Tableau', hint: 'Inscriptions', icon: IconTable },
   { id: 'charts', label: 'Graphiques', hint: 'Analyse', icon: IconCharts },
   { id: 'ceremony', label: 'Cérémonie', hint: 'Meilleurs clients', icon: IconTrophy },
+  { id: 'sms', label: 'SMS', hint: 'Messagerie', icon: IconSms },
 ]
 
 export function Sidebar({ active, onChange, onRefresh, loading }: SidebarProps) {

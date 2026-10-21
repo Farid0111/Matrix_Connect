@@ -1,5 +1,6 @@
 import type { ClientRank, WifiUser } from '../types'
 import { decodeMac } from './format'
+import { normalizePhone } from './phone'
 
 export function monthKeyFromDate(date = new Date()): string {
   const y = date.getFullYear()
@@ -13,9 +14,16 @@ export function formatMonthLabel(monthKey: string): string {
   return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
 }
 
+/**
+ * Identifiant client.
+ *
+ * On se base sur le numero normalise : une meme personne qui s'est inscrite
+ * avec deux formats differents (`0155541115` et `+2290155541115`) ou depuis
+ * deux appareils (deux MAC) reste un seul client.
+ */
 export function clientId(user: Pick<WifiUser, 'phone' | 'mac'>): string {
-  const phone = (user.phone || '').replace(/\s+/g, '')
-  if (phone && phone !== '-') return `phone:${phone}`
+  const { e164 } = normalizePhone(user.phone)
+  if (e164) return `phone:${e164}`
   return `mac:${decodeMac(user.mac).toLowerCase()}`
 }
 
@@ -38,6 +46,7 @@ export function rankClientsForMonth(
       zone: string
       server: string
       visits: number
+      connectionCount: number
       lastVisit: string | null
       zones: Set<string>
     }
@@ -46,16 +55,18 @@ export function rankClientsForMonth(
   for (const u of rawUsers) {
     if (!isInMonth(u.createdAt, monthKey)) continue
     const id = clientId(u)
+    const phone = normalizePhone(u.phone).e164 ?? u.phone
     const existing = map.get(id)
 
     if (!existing) {
       map.set(id, {
         name: u.name,
-        phone: u.phone,
+        phone,
         mac: u.mac,
         zone: u.zone,
         server: u.server,
         visits: 1,
+        connectionCount: u.connectionCount,
         lastVisit: u.createdAt,
         zones: new Set(u.zone && u.zone !== '-' ? [u.zone] : []),
       })
@@ -63,6 +74,10 @@ export function rankClientsForMonth(
     }
 
     existing.visits += 1
+    existing.connectionCount = Math.max(
+      existing.connectionCount,
+      u.connectionCount,
+    )
     if (u.zone && u.zone !== '-') existing.zones.add(u.zone)
     if (
       u.createdAt &&
@@ -71,7 +86,7 @@ export function rankClientsForMonth(
     ) {
       existing.lastVisit = u.createdAt
       existing.name = u.name || existing.name
-      existing.phone = u.phone || existing.phone
+      existing.phone = phone
       existing.mac = u.mac || existing.mac
       existing.zone = u.zone || existing.zone
       existing.server = u.server || existing.server
@@ -87,10 +102,14 @@ export function rankClientsForMonth(
       zone: value.zone,
       server: value.server,
       visits: value.visits,
+      connectionCount: value.connectionCount,
       lastVisit: value.lastVisit,
       zonesUsed: Array.from(value.zones).sort(),
     }))
     .sort((a, b) => {
+      if (b.connectionCount !== a.connectionCount) {
+        return b.connectionCount - a.connectionCount
+      }
       if (b.visits !== a.visits) return b.visits - a.visits
       const ta = a.lastVisit ? new Date(a.lastVisit).getTime() : 0
       const tb = b.lastVisit ? new Date(b.lastVisit).getTime() : 0

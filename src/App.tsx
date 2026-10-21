@@ -5,11 +5,13 @@ import { Controls } from './components/Controls'
 import { Header } from './components/Header'
 import { HexBackground } from './components/HexBackground'
 import { Sidebar } from './components/Sidebar'
+import { SmsSection } from './components/SmsSection'
 import { StatsGrid } from './components/StatsGrid'
 import { UsersTable } from './components/UsersTable'
 import { useWifiUsers } from './hooks/useWifiUsers'
 import type { Section } from './types'
 import { decodeMac } from './utils/format'
+import { buildOwnerIndex } from './utils/owners'
 import './App.css'
 
 export default function App() {
@@ -18,6 +20,9 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [zone, setZone] = useState('')
   const [server, setServer] = useState('')
+
+  /** Association numero normalise -> proprietaire, calculee sur tous les enregistrements. */
+  const ownerIndex = useMemo(() => buildOwnerIndex(rawUsers), [rawUsers])
 
   const filteredUsers = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -40,7 +45,9 @@ export default function App() {
       ? 'Cérémonie & meilleurs clients'
       : section === 'charts'
         ? 'Analyse des inscriptions'
-        : 'Enregistrements WiFi'
+        : section === 'sms'
+          ? 'Messagerie SMS'
+          : 'Enregistrements WiFi'
 
   return (
     <>
@@ -78,7 +85,9 @@ export default function App() {
         />
 
         <main className="main-content">
-          {section !== 'ceremony' && <StatsGrid users={users} />}
+          {section !== 'ceremony' && (
+            <StatsGrid users={users} rawUsers={rawUsers} />
+          )}
 
           {section === 'table' && (
             <div className="content-section active">
@@ -95,6 +104,7 @@ export default function App() {
                 users={filteredUsers}
                 loading={loading}
                 error={error}
+                ownerIndex={ownerIndex}
               />
             </div>
           )}
@@ -108,6 +118,12 @@ export default function App() {
           {section === 'ceremony' && (
             <div className="content-section active">
               <CeremonySection rawUsers={rawUsers} loading={loading} />
+            </div>
+          )}
+
+          {section === 'sms' && (
+            <div className="content-section active">
+              <SmsSection users={rawUsers} />
             </div>
           )}
         </main>
