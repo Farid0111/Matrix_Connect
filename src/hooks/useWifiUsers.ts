@@ -13,7 +13,7 @@ export function useWifiUsers() {
     try {
       setError(null)
       if (mode === 'manual') setRefreshing(true)
-      const data = await fetchWifiUsers()
+      const data = await fetchWifiUsers(mode === 'manual')
       setUsers(data.users)
       setRawUsers(data.rawUsers)
     } catch (err) {

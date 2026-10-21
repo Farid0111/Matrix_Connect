@@ -104,7 +104,20 @@ async function fetchPage(pageToken?: string): Promise<FirestoreResponse> {
   return (await response.json()) as FirestoreResponse
 }
 
-export async function fetchWifiUsers(): Promise<WifiUsersPayload> {
+const CACHE_KEY = 'wifiUsersCache'
+const CACHE_TTL = 5 * 60 * 1000
+
+export async function fetchWifiUsers(force = false): Promise<WifiUsersPayload> {
+  if (!force) {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY)
+      if (cached) {
+        const { data, ts } = JSON.parse(cached)
+        if (Date.now() - ts < CACHE_TTL) return data
+      }
+    } catch {}
+  }
+
   const docs: FirestoreDocument[] = []
   const seenTokens = new Set<string>()
   let pageToken: string | undefined
@@ -116,15 +129,20 @@ export async function fetchWifiUsers(): Promise<WifiUsersPayload> {
     if (pageToken) {
       if (seenTokens.has(pageToken)) break
       seenTokens.add(pageToken)
-      // Small delay between paginated requests to avoid rate limits
       await new Promise(resolve => setTimeout(resolve, 100))
     }
   } while (pageToken)
 
   const rawUsers = mapDocs(docs).filter((u) => u.mac && u.mac !== '-')
 
-  return {
+  const result = {
     users: dedupeByMac(rawUsers),
     rawUsers,
   }
+
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ data: result, ts: Date.now() }))
+  } catch {}
+
+  return result
 }
