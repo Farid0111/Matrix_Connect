@@ -3,9 +3,12 @@ import type { SmsRecipient } from './owners'
 /**
  * Tri et ciblage des clients par nombre de connexions.
  *
- * Dans la collection `freeWifiUsers`, un document correspond a une connexion
- * WiFi (le portail capture enregistre le passage du client). Le nombre de
- * connexions d'un client est donc le nombre de documents portant son numero.
+ * Le nombre de connexions d'un client vient du champ `connectionCount` de la
+ * collection. Ce champ n'est renseigne que sur les documents les plus
+ * recents : pour les anciens, chaque document vaut une connexion (le
+ * portail ecrit un document par passage, jusqu'a 71 documents pour un meme
+ * appareil). Les deux sont cumules par appareil, en retenant le compteur
+ * renseigne s'il existe, sinon le nombre de documents.
  *
  * Un client est considere comme regulier au-dela d'un seuil de connexions ;
  * en dessous, il est "irregulier" et candidat a une relance par SMS.
@@ -29,8 +32,8 @@ export type ActivityLevel = 'rare' | 'occasional' | 'regular'
 
 /** Donnees minimales necessaires pour evaluer la regularite d'un client. */
 export interface ConnectionProfile {
-  /** Nombre de connexions enregistrees */
-  visits: number
+  /** Nombre de connexions du client */
+  connections: number
 }
 
 /** Un client est regulier s'il a au moins `threshold` connexions. */
@@ -38,7 +41,7 @@ export function isRegular(
   recipient: ConnectionProfile,
   threshold: number,
 ): boolean {
-  return recipient.visits >= threshold
+  return recipient.connections >= threshold
 }
 
 /** Niveau de regularite, utilise pour colorer les badges. */
@@ -46,8 +49,8 @@ export function activityLevel(
   recipient: ConnectionProfile,
   threshold: number,
 ): ActivityLevel {
-  if (recipient.visits >= threshold) return 'regular'
-  if (recipient.visits >= threshold - 1) return 'occasional'
+  if (recipient.connections >= threshold) return 'regular'
+  if (recipient.connections >= threshold - 1) return 'occasional'
   return 'rare'
 }
 
@@ -70,13 +73,13 @@ export function sortRecipients(
     case 'connections':
       return copy.sort(
         (a, b) =>
-          b.visits - a.visits ||
+          b.connections - a.connections ||
           b.reportedConnections - a.reportedConnections ||
           byName(a, b),
       )
     case 'irregular':
       return copy.sort(
-        (a, b) => a.visits - b.visits || byName(a, b),
+        (a, b) => a.connections - b.connections || byName(a, b),
       )
     case 'name':
       return copy.sort(byName)
@@ -107,7 +110,7 @@ export function activitySummary(
 
   for (const r of list) {
     if (isRegular(r, threshold)) regular += 1
-    totalConnections += r.visits
+    totalConnections += r.connections
   }
 
   return {

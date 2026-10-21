@@ -119,7 +119,8 @@ for (const g of valid.slice(0, 25)) {
     '  ',
     (g.e164 ?? '').padEnd(18),
     (g.name || '(sans nom)').padEnd(28),
-    `${g.visits} connexion(s)`,
+    `${g.connections} connexion(s)`,
+    `${g.visits} passage(s)`,
     `${g.daysActive} jour(s)`,
   )
 }
@@ -128,37 +129,43 @@ console.log('')
 console.log('repartition du nombre de connexions par client :')
 const buckets = new Map<number, number>()
 for (const g of valid) {
-  buckets.set(g.visits, (buckets.get(g.visits) ?? 0) + 1)
+  buckets.set(g.connections, (buckets.get(g.connections) ?? 0) + 1)
 }
 for (const [k, v] of [...buckets.entries()].sort((a, b) => a[0] - b[0])) {
   console.log('  ', String(k).padStart(4), 'connexion(s) :', v, 'client(s)')
 }
-const sorted = [...valid].map((g) => g.visits).sort((a, b) => a - b)
+const sorted = [...valid].map((g) => g.connections).sort((a, b) => a - b)
 console.log('  mediane :', sorted[Math.floor(sorted.length / 2)])
 console.log('  moyenne :', Math.round(sorted.reduce((a, b) => a + b, 0) / sorted.length))
 console.log('  total connexions :', sorted.reduce((a, b) => a + b, 0))
+console.log(
+  '  documents avec le champ connectionCount renseigne :',
+  valid.filter((g) => g.reportedConnections > 0).length,
+)
 console.log('')
-console.log('ciblage des clients irreguliers (seuil 3) :')
+console.log('ciblage des clients irreguliers :')
 for (const threshold of [2, 3, 4, 5, 8]) {
-  const irr = valid.filter((g) => g.visits < threshold)
+  const irr = valid.filter((g) => g.connections < threshold)
   console.log(
     '  seuil',
     String(threshold).padStart(2),
     '->',
     String(irr.length).padStart(3),
     'client(s) irregulier(s)',
-    `(${irr.reduce((a, g) => a + g.visits, 0)} connexion(s) au total)`,
+    `(${irr.reduce((a, g) => a + g.connections, 0)} connexion(s) au total)`,
   )
 }
 console.log('')
 console.log('top 10 par nombre de connexions :')
-for (const g of [...valid].sort((a, b) => b.visits - a.visits).slice(0, 10)) {
+for (const g of [...valid].sort((a, b) => b.connections - a.connections).slice(0, 10)) {
   console.log(
     '   ',
     g.e164?.padEnd(18),
     (g.name || '(sans nom)').padEnd(24),
-    g.visits,
+    g.connections,
     'connexion(s)',
+    g.visits,
+    'passage(s)',
     g.daysActive,
     'jour(s) actif(s)',
   )

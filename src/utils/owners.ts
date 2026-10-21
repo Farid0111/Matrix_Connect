@@ -37,15 +37,19 @@ export interface PhoneOwner {
   /** Toutes les zones ou ce numero a ete vu */
   zones: string[]
   /**
-   * Nombre de connexions enregistrees pour ce numero.
-   * Chaque document Firestore correspond a une connexion WiFi.
+   * Nombre de connexions du client.
+   *
+   * Le champ `connectionCount` de la collection n'est renseigne que sur les
+   * documents recents ; les anciens ne portent que leur existence, chaque
+   * document correspondant a une connexion. On additionne donc, par appareil
+   * (MAC), le plus grand des deux : le compteur renseigne par le portail, ou
+   * le nombre de documents de cet appareil.
    */
-  visits: number
-  /**
-   * Valeur du champ `connectionCount` de la collection.
-   * Ce champ est absent des documents actuels : reste a 0.
-   */
+  connections: number
+  /** Somme brute des valeurs du champ `connectionCount` */
   reportedConnections: number
+  /** Nombre de documents enregistres pour ce numero */
+  visits: number
   /** Nombre de jours distincts avec au moins un passage */
   daysActive: number
   /** Derniere visite connue pour ce numero */
@@ -56,6 +60,13 @@ export interface PhoneOwner {
   records: number
   /** Raison du rejet si e164 est null */
   error: string | null
+}
+
+interface DeviceCounter {
+  /** Nombre de documents enregistres pour cet appareil */
+  docs: number
+  /** Plus grand `connectionCount` renseigne pour cet appareil */
+  counter: number
 }
 
 interface Accumulator {
@@ -69,6 +80,7 @@ interface Accumulator {
   macs: Set<string>
   zones: Set<string>
   days: Set<string>
+  devices: Map<string, DeviceCounter>
   visits: number
   reportedConnections: number
   lastVisit: string | null
@@ -130,6 +142,7 @@ export function groupByPhone(records: PhoneRecord[]): PhoneOwner[] {
         macs: new Set<string>(),
         zones: new Set<string>(),
         days: new Set<string>(),
+        devices: new Map<string, DeviceCounter>(),
         visits: 1,
         reportedConnections: record.connectionCount ?? 0,
         lastVisit: record.createdAt ?? null,
@@ -183,27 +196,43 @@ export function groupByPhone(records: PhoneRecord[]): PhoneOwner[] {
       }
     }
 
-    if (record.mac && record.mac !== '-') acc.macs.add(record.mac)
+    if (record.mac && record.mac !== '-') {
+      acc.macs.add(record.mac)
+      const device = acc.devices.get(record.mac) ?? { docs: 0, counter: 0 }
+      device.docs += 1
+      device.counter = Math.max(device.counter, record.connectionCount ?? 0)
+      acc.devices.set(record.mac, device)
+    }
     if (record.zone && record.zone !== '-') acc.zones.add(record.zone)
     if (record.createdAt) acc.days.add(record.createdAt.slice(0, 10))
   }
 
   return Array.from(groups.values())
-    .map((acc) => ({
-      e164: acc.e164,
-      raw: acc.raw,
-      name: acc.name,
-      aliases: acc.aliases,
-      macs: Array.from(acc.macs),
-      zones: Array.from(acc.zones).sort(),
-      visits: acc.visits,
-      reportedConnections: acc.reportedConnections,
-      daysActive: acc.days.size,
-      lastVisit: acc.lastVisit,
-      firstVisit: acc.firstVisit,
-      records: acc.records,
-      error: acc.error,
-    }))
+    .map((acc) => {
+      // Par appareil : le compteur renseigne par le portail s'il existe,
+      // sinon le nombre de documents (1 document = 1 connexion).
+      let connections = 0
+      for (const device of acc.devices.values()) {
+        connections += Math.max(device.counter, device.docs)
+      }
+
+      return {
+        e164: acc.e164,
+        raw: acc.raw,
+        name: acc.name,
+        aliases: acc.aliases,
+        macs: Array.from(acc.macs),
+        zones: Array.from(acc.zones).sort(),
+        connections,
+        visits: acc.visits,
+        reportedConnections: acc.reportedConnections,
+        daysActive: acc.days.size,
+        lastVisit: acc.lastVisit,
+        firstVisit: acc.firstVisit,
+        records: acc.records,
+        error: acc.error,
+      }
+    })
     .sort((a, b) => {
       const an = a.name || a.raw
       const bn = b.name || b.raw
@@ -254,9 +283,11 @@ export interface SmsRecipient {
   macs: string[]
   /** Zones ou ce numero a ete vu */
   zones: string[]
-  /** Nombre de connexions enregistrees (1 document = 1 connexion) */
+  /** Nombre de connexions du client (champ `connectionCount`, sinon documents) */
+  connections: number
+  /** Nombre de documents enregistres pour ce numero */
   visits: number
-  /** Valeur du champ `connectionCount` de la collection (0 si absent) */
+  /** Somme brute des valeurs du champ `connectionCount` */
   reportedConnections: number
   /** Nombre de jours distincts avec au moins un passage */
   daysActive: number
@@ -294,6 +325,7 @@ export function resolveRecipients(
         aliases: owner.aliases,
         macs: owner.macs,
         zones: owner.zones,
+        connections: owner.connections,
         visits: owner.visits,
         reportedConnections: owner.reportedConnections,
         daysActive: owner.daysActive,

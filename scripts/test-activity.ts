@@ -13,7 +13,7 @@ import { resolveRecipients, type PhoneRecord } from '../src/utils/owners'
  */
 
 const RECORDS: PhoneRecord[] = [
-  // Client regulier : 5 passages
+  // Client regulier : 5 passages, champ connectionCount absent
   ...Array.from({ length: 5 }, (_, i) => ({
     name: 'AkADIRI',
     phone: '0163471290',
@@ -57,6 +57,15 @@ const RECORDS: PhoneRecord[] = [
     createdAt: '2026-10-01T12:00:00Z',
     connectionCount: 0,
   },
+  // Un seul document portant le vrai compteur du portail : 12 connexions
+  {
+    name: 'Zime Mohamed',
+    phone: '0152971833',
+    mac: 'AA:BB:CC:00:05:00',
+    zone: 'Cotonou',
+    createdAt: '2026-10-15T12:00:00Z',
+    connectionCount: 12,
+  },
 ]
 
 const { valid } = resolveRecipients(RECORDS)
@@ -68,7 +77,8 @@ for (const r of valid) {
     ' ',
     r.e164.padEnd(18),
     (r.name || '(sans nom)').padEnd(26),
-    `${r.visits} connexion(s)`,
+    `${r.connections} connexion(s)`,
+    `${r.visits} passage(s)`,
     `| niveau : ${activityLevel(r, THRESHOLD)}`,
   )
 }
@@ -80,45 +90,60 @@ const irregular = irregularRecipients(valid, THRESHOLD)
 const summary = activitySummary(valid, THRESHOLD)
 
 console.log('tri connexions decroissant :')
-console.log(' ', byConnections.map((r) => `${r.name}:${r.visits}`).join(' | '))
+console.log(' ', byConnections.map((r) => `${r.name}:${r.connections}`).join(' | '))
 console.log('tri irreguliers d abord :')
-console.log(' ', byIrregular.map((r) => `${r.name}:${r.visits}`).join(' | '))
+console.log(' ', byIrregular.map((r) => `${r.name}:${r.connections}`).join(' | '))
 console.log('')
 console.log('irreguliers selectionnes :', irregular.map((r) => r.name).join(', '))
 console.log('resume :', JSON.stringify(summary))
 console.log('')
 
 const checks: [string, boolean][] = [
-  ['5 clients', valid.length === 5],
+  ['6 clients', valid.length === 6],
   [
-    'connexions = nombre de passages par numero',
-    valid.find((r) => r.name === 'AkADIRI')?.visits === 5,
+    'connexions = nombre de passages quand connectionCount est absent',
+    valid.find((r) => r.name === 'AkADIRI')?.connections === 5,
+  ],
+  [
+    'connexions = connectionCount du portail quand il est renseigne',
+    valid.find((r) => r.name === 'Zime Mohamed')?.connections === 12,
+  ],
+  [
+    'le compteur du portail prime sur le nombre de documents',
+    valid.find((r) => r.name === 'Zime Mohamed')?.visits === 1,
   ],
   [
     'tri connexions : du plus regulier au moins regulier',
-    byConnections[0].name === 'AkADIRI' && byConnections[1].name === 'GUERRA SAKA',
+    byConnections[0].name === 'Zime Mohamed' && byConnections[1].name === 'AkADIRI',
   ],
   [
-    'tri irreguliers : les 1 passage en tete',
-    byIrregular[0].visits === 1 && byIrregular[0].name === 'Christelle Ahouandjinou',
+    'tri irreguliers : les 1 connexion en tete',
+    byIrregular[0].connections === 1 &&
+      byIrregular[0].name === 'Christelle Ahouandjinou',
   ],
   ['3 clients irreguliers (seuil 3)', irregular.length === 3],
   [
-    'irreguliers = 1 ou 2 passages',
-    irregular.every((r) => r.visits < THRESHOLD),
+    'irreguliers = moins de 3 connexions',
+    irregular.every((r) => r.connections < THRESHOLD),
   ],
-  ['regulier = 3 passages ou plus', isRegular({ visits: 3 }, THRESHOLD)],
-  ['non regulier = 2 passages', !isRegular({ visits: 2 }, THRESHOLD)],
   [
-    'resume : 2 reguliers / 3 irreguliers',
-    summary.regular === 2 && summary.irregular === 3,
+    'regulier = 3 connexions ou plus',
+    isRegular({ connections: 3 }, THRESHOLD),
   ],
-  ['resume : 12 connexions au total', summary.totalConnections === 12],
+  [
+    'non regulier = 2 connexions',
+    !isRegular({ connections: 2 }, THRESHOLD),
+  ],
+  [
+    'resume : 3 reguliers / 3 irreguliers',
+    summary.regular === 3 && summary.irregular === 3,
+  ],
+  ['resume : 24 connexions au total', summary.totalConnections === 24],
   [
     'niveaux : rare / occasional / regular',
-    activityLevel({ visits: 1 }, THRESHOLD) === 'rare' &&
-      activityLevel({ visits: 2 }, THRESHOLD) === 'occasional' &&
-      activityLevel({ visits: 5 }, THRESHOLD) === 'regular',
+    activityLevel({ connections: 1 }, THRESHOLD) === 'rare' &&
+      activityLevel({ connections: 2 }, THRESHOLD) === 'occasional' &&
+      activityLevel({ connections: 5 }, THRESHOLD) === 'regular',
   ],
   [
     'le tri ne modifie pas la liste d origine',

@@ -85,9 +85,9 @@ export function UsersTable({
                     <td>
                       <span
                         className="total-pill"
-                        title={`${owner?.visits ?? 0} connexion(s) enregistree(s) pour ce numero`}
+                        title={`${owner?.connections ?? 0} connexion(s) pour ce numero`}
                       >
-                        {owner?.visits ?? 0}
+                        {owner?.connections ?? 0}
                       </span>
                     </td>
                     <td>{formatTimestamp(u.createdAt)}</td>

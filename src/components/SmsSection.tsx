@@ -150,7 +150,7 @@ export function SmsSection({
 
   /** Selectionne uniquement les clients reguliers. */
   function selectRegular() {
-    const regular = valid.filter((r) => r.visits >= threshold)
+    const regular = valid.filter((r) => r.connections >= threshold)
     setSelected(new Set(regular.map((r) => r.e164)))
     setTargeting(
       `${regular.length} client(s) regulier(s) selectionne(s) ` +
@@ -342,9 +342,10 @@ export function SmsSection({
         </div>
 
         <p className="sms-targeting-hint">
-          {summary.totalConnections} connexion(s) enregistree(s) au total. Un
-          document Firestore = une connexion WiFi : le nombre de connexions
-          d&apos;un client = le nombre de passages de son numero.
+          {summary.totalConnections} connexion(s) au total. Nombre de
+          connexions = champ <code>connectionCount</code> du portail quand il
+          est renseigne, sinon le nombre de passages de l&apos;appareil (1
+          document = 1 connexion).
         </p>
       </div>
 
@@ -403,13 +404,13 @@ export function SmsSection({
                       </span>
                       <span
                         className={`sms-badge level-${level}`}
-                        title={`${r.visits} connexion(s) — ${r.daysActive} jour(s) actif(s) — derniere visite ${
+                        title={`${r.connections} connexion(s) — ${r.visits} passage(s) — ${r.daysActive} jour(s) actif(s) — derniere visite ${
                           r.lastVisit
                             ? new Date(r.lastVisit).toLocaleDateString('fr-FR')
                             : 'inconnue'
                         }`}
                       >
-                        {r.visits}
+                        {r.connections}
                       </span>
                     </label>
                     <button

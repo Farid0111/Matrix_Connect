@@ -155,7 +155,11 @@ const serge = valid.find((r) => r.e164 === '+2290163471290')
 const checks: [string, boolean][] = [
   ['Aline : un seul numero pour 3 MAC', !!aline && aline.macs.length === 3],
   ['Aline : proprietaire = nom le plus ancien identique', aline?.name === 'Aline Kponou'],
-  ['Aline : connexions = 3 passages', aline?.visits === 3],
+  [
+    'Aline : connexions = somme des compteurs par appareil (12+18+12)',
+    aline?.connections === 42,
+  ],
+  ['Aline : 3 passages enregistres', aline?.visits === 3],
   ['Aline : 3 zones/enregistrements fusionnes', !!aline && aline.records === 3],
   [
     'Barthelemy : 8 chiffres -> +2290143306235',

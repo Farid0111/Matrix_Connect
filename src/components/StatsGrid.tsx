@@ -38,12 +38,12 @@ export function StatsGrid({
     const owners = groupByPhone(rawUsers ?? users)
     const clients = owners.filter((o) => o.e164 !== null)
 
-    const connections = clients.reduce((sum, o) => sum + o.visits, 0)
+    const connections = clients.reduce((sum, o) => sum + o.connections, 0)
     const activity = activitySummary(clients, threshold)
 
     const top = [...clients].sort(
       (a, b) =>
-        b.visits - a.visits ||
+        b.connections - a.connections ||
         b.reportedConnections - a.reportedConnections ||
         (b.lastVisit ?? '').localeCompare(a.lastVisit ?? ''),
     )[0]
@@ -97,7 +97,7 @@ export function StatsGrid({
         </div>
         <div className="stat-sub">
           {stats.top
-            ? `${stats.top.visits} connexion(s) · ${stats.top.daysActive} jour(s)`
+            ? `${stats.top.connections} connexion(s) · ${stats.top.daysActive} jour(s)`
             : 'aucun client'}
         </div>
       </div>
