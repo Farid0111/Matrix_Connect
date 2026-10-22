@@ -105,7 +105,7 @@ async function fetchPage(pageToken?: string): Promise<FirestoreResponse> {
 }
 
 const CACHE_KEY = 'wifiUsersCache'
-const CACHE_TTL = 5 * 60 * 1000
+const CACHE_TTL = 30 * 60 * 1000
 
 export async function fetchWifiUsers(force = false): Promise<WifiUsersPayload> {
   if (!force) {
