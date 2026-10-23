@@ -160,14 +160,10 @@ export function SmsSection({
   }
 
   const selectInactive = () => {
-    const cutoff = Date.now() - 3 * 24 * 60 * 60 * 1000
-    const inactive = valid.filter((r) => {
-      if (!r.lastVisit) return true
-      return new Date(r.lastVisit).getTime() < cutoff
-    })
+    const inactive = valid.filter((r) => r.connections <= 1)
     setSelected(new Set(inactive.map((r) => r.e164)))
     setTargeting(
-      `${inactive.length} client(s) inactif(s) depuis 3 jours selectionne(s)`,
+      `${inactive.length} client(s) inactif(s) (peu de connexions) selectionne(s)`,
     )
   }
 
@@ -368,7 +364,7 @@ export function SmsSection({
             className="ghost-btn warn"
             onClick={selectInactive}
           >
-            Inactifs 3j
+            Inactifs (peu de connexions)
           </button>
         </div>
 
