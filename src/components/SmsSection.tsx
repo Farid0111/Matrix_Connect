@@ -48,6 +48,7 @@ export function SmsSection({
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
   const [sortMode, setSortMode] = useState<SmsSortMode>('connections')
+  const [zoneFilter, setZoneFilter] = useState('')
   const [targeting, setTargeting] = useState<string | null>(null)
 
   useEffect(() => {
@@ -76,17 +77,27 @@ export function SmsSection({
     [users],
   )
 
+  const zones = useMemo(() => {
+    const set = new Set<string>()
+    for (const r of valid) {
+      for (const z of r.zones) if (z && z !== '-') set.add(z)
+    }
+    return Array.from(set).sort()
+  }, [valid])
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return valid
-    return valid.filter(
-      (r) =>
+    return valid.filter((r) => {
+      if (zoneFilter && !r.zones.includes(zoneFilter)) return false
+      if (!q) return true
+      return (
         r.name.toLowerCase().includes(q) ||
         r.e164.includes(q) ||
         r.raw.toLowerCase().includes(q) ||
-        r.aliases.some((a) => a.toLowerCase().includes(q)),
-    )
-  }, [valid, query])
+        r.aliases.some((a) => a.toLowerCase().includes(q))
+      )
+    })
+  }, [valid, query, zoneFilter])
 
   /** Liste triee selon le mode choisi, filtre recherche conserve. */
   const sorted = useMemo(
@@ -312,6 +323,18 @@ export function SmsSection({
             {SORT_MODES.map((m) => (
               <option key={m.value} value={m.value}>
                 {m.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="sms-field">
+          <span>Zone</span>
+          <select value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)}>
+            <option value="">Toutes</option>
+            {zones.map((z) => (
+              <option key={z} value={z}>
+                {z}
               </option>
             ))}
           </select>
