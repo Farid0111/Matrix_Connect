@@ -13,7 +13,7 @@ import type { SmsRecipient } from './owners'
  * en dessous, il est "irregulier" et candidat a une relance par SMS.
  */
 
-export type SmsSortMode = 'connections' | 'visits' | 'irregular' | 'name' | 'recent'
+export type SmsSortMode = 'connections' | 'visits' | 'irregular' | 'name' | 'recent' | 'zone'
 
 export const SORT_MODES: { value: SmsSortMode; label: string }[] = [
   { value: 'connections', label: 'Connexions (decroissant)' },
@@ -21,6 +21,7 @@ export const SORT_MODES: { value: SmsSortMode; label: string }[] = [
   { value: 'irregular', label: 'Irreguliers d’abord' },
   { value: 'name', label: 'Nom (A→Z)' },
   { value: 'recent', label: 'Derniere visite (recent)' },
+  { value: 'zone', label: 'Zone (A→Z)' },
 ]
 
 /** Seuils de regularite proposes (nombre de connexions minimum). */
@@ -85,6 +86,12 @@ export function sortRecipients(
       return copy.sort(
         (a, b) =>
           (b.lastVisit ?? '').localeCompare(a.lastVisit ?? '') ||
+          byName(a, b),
+      )
+    case 'zone':
+      return copy.sort(
+        (a, b) =>
+          (a.zones[0] ?? '').localeCompare(b.zones[0] ?? '') ||
           byName(a, b),
       )
   }
